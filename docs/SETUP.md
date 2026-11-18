@@ -1,93 +1,254 @@
-# SignalDesk setup (about 15 minutes, once)
+# SignalDesk: complete setup guide
 
-Everything runs on free services: GitHub (server and hosting) and ntfy (push alarms). The AI analyst is optional and is paid per use (see step 4).
+Follow the parts in order. Each part says **where to go** and **what to click**.
+Total time: about 30–40 minutes, once.
 
-## 1. Put the code on GitHub
+| Part | What you set up | Needed? |
+|---|---|---|
+| A | Give Claude access to your GitHub repo, so the code can be uploaded | Yes |
+| B | Turn on GitHub Pages (your web app / iPhone app) | Yes |
+| C | Install ntfy on your phones and create your alarm channel | Yes |
+| D | Connect the alarm channel to the 24/7 server and start it | Yes |
+| E | Open the web app and test an alarm | Yes |
+| F | AI analyst (Claude) | Optional, costs money |
+| G | Windows, Mac and Android apps | Optional |
+| H | Let the app save settings to GitHub | Optional |
 
-1. Create a **public** repository on GitHub, for example `signaldesk`. A public repo gives unlimited free server minutes, which the every-5-minute checks need.
-2. Push this project to it (branch `main`).
+Your repository: **https://github.com/Jeewan0406/signalDesk**
 
-## 2. Turn on the web app (this is also the iPhone app)
+---
 
-1. In the repository: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-2. Open **Actions → Deploy web app → Run workflow**.
-3. After 1–2 minutes your app is at `https://<your-username>.github.io/<repo-name>/`.
+## Part A — Give Claude access to your repository
 
-## 3. Turn on 24/7 alarms (ntfy)
+The code can only be uploaded after the Claude GitHub App is allowed to use your repository.
 
-1. Install **ntfy**: [iPhone](https://apps.apple.com/app/ntfy/id1625396347) · [Android](https://play.google.com/store/apps/details?id=io.heckel.ntfy) · [Windows/Mac web app](https://ntfy.sh/app).
-2. Open your SignalDesk web app → **Alarms** → press **Generate** to create your private alarm channel name, then **Copy** it.
-3. In the ntfy app tap **+** and subscribe to that exact channel name.
-4. In GitHub: **Settings → Secrets and variables → Actions → New repository secret**
-   - Name: `NTFY_TOPIC`
-   - Value: the channel name
-5. In SignalDesk, press **Send test alarm**. It should appear in ntfy within seconds.
-6. Open **Actions → 24/7 monitor → Run workflow** once. After that it runs by itself about every 5 minutes. The first run creates the `data` branch that the apps read.
+1. Open **https://github.com/apps/claude/installations/select_target** and sign in to GitHub if asked.
+2. Click your account **Jeewan0406**.
+3. Under **Repository access**, choose **Only select repositories**.
+4. Click **Select repositories** and pick **signalDesk**.
+5. Click **Install** (or **Save** if it was installed before).
+6. If GitHub says it is already installed and nothing changes, open **https://claude.ai/customize/connectors?auth_start=github&auth_start_force=1** and connect GitHub again.
+7. Tell Claude **"done"**. Claude uploads the code.
 
-> Keep the channel name secret: anyone who knows it can read your alarms.
+**Check:** open https://github.com/Jeewan0406/signalDesk. You should now see folders such as `.github`, `android`, `server`, `src` and the file `README.md`.
 
-## 4. Turn on the AI analyst (optional)
+---
 
-The AI analyst uses **Claude** (Anthropic's model `claude-opus-5-5`). It reads the technical analysis and the latest war, geopolitics, central-bank, cyber-attack and crypto headlines, then writes a reasoned forecast for each asset with targets, a floor, a ceiling and scenarios.
+## Part B — Turn on GitHub Pages
 
-1. Create an API key at [console.anthropic.com](https://console.anthropic.com) (pay-as-you-go).
-2. Add it as a repository secret named `ANTHROPIC_API_KEY`.
+This publishes the web app. On iPhone, this web app *is* your app.
 
-**How often it runs** is your choice. The default is **every 30 minutes**, plus an extra run right after a floor/ceiling alarm. Change it any time in the app: **Settings → 24/7 server settings**. You can pick Off, 15 min, 30 min, 1 h, 2 h, 4 h, 8 h or once a day, and the app shows the estimated cost before you save. Saving needs the GitHub sync token from step 6. You can also edit `config/settings.json` in GitHub directly:
+1. Open https://github.com/Jeewan0406/signalDesk.
+2. Click **Settings** (top bar, far right; the gear icon).
+3. In the left menu, under **Code and automation**, click **Pages**.
+4. Under **Build and deployment → Source**, open the drop-down and choose **GitHub Actions**. It saves by itself.
 
-```json
-{ "aiIntervalMinutes": 30, "approachAlerts": false }
+**Check that GitHub Actions is allowed:**
+
+1. Click the **Actions** tab (top bar).
+2. If you see a yellow box saying workflows are disabled, click **"I understand my workflows, go ahead and enable them"**.
+
+---
+
+## Part C — Install ntfy and create your alarm channel
+
+ntfy is a free app that receives the alarms. It works even when SignalDesk is closed and your phone is locked.
+
+### C1. Choose your private channel name
+
+Make up a long name that nobody can guess. Use only small letters, numbers and `-`, for example:
+
+```
+signaldesk-k7rq2mx9tbv4
 ```
 
-**Cost estimate:** roughly **$0.15–0.25 per analysis run**:
+**Write it down.** Anyone who knows this name can read your alarms, so don't share it. You will type the exact same name in three places: the ntfy app(s), GitHub, and the SignalDesk app.
 
-| Schedule | Runs per day | About per day |
+### C2. iPhone
+
+1. Open the **App Store**, search **ntfy** (white bell icon, developer *Philipp Heckel*), or open https://apps.apple.com/app/ntfy/id1625396347
+2. Tap **Get**, then open the app.
+3. When it asks **"ntfy Would Like to Send You Notifications"**, tap **Allow**.
+4. Tap **+** (top right).
+5. In **Topic name**, type your channel name exactly. Leave **Use another server** switched off.
+6. Tap **Subscribe**.
+
+If you tapped *Don't Allow* by mistake: iPhone **Settings → Notifications → ntfy →** switch on **Allow Notifications**, with **Sounds** and **Banners** on.
+
+### C3. Android
+
+1. Open **Google Play**, search **ntfy**, or open https://play.google.com/store/apps/details?id=io.heckel.ntfy
+2. Tap **Install**, then **Open**.
+3. If it asks to allow notifications, tap **Allow**.
+4. Tap the round **+** button (bottom right).
+5. In **Topic name**, type your channel name exactly.
+6. Leave **Use another server** unticked. Tick **Instant delivery** so alarms arrive at once, even when the phone is asleep.
+7. Tap **Subscribe**.
+8. Stop Android from putting ntfy to sleep: phone **Settings → Apps → ntfy → Battery →** choose **Unrestricted** (on some phones: **Battery optimisation → Don't optimise**).
+
+### C4. Computer (optional)
+
+1. Open **https://ntfy.sh/app** in Chrome, Edge or Safari.
+2. Click **Subscribe to topic**, type your channel name, then click **Subscribe**.
+3. When it asks for notification permission, click **Grant now / Allow**.
+
+### C5. Test ntfy by itself
+
+1. On a computer, open **https://ntfy.sh/app** and click your channel in the left menu (subscribe first as in C4).
+2. Type `test` in the message box at the bottom and press **Enter**.
+3. Your iPhone and Android phone should show the notification within a few seconds.
+
+---
+
+## Part D — Connect the alarms to the 24/7 server
+
+### D1. Save the channel name as a GitHub secret
+
+1. Open https://github.com/Jeewan0406/signalDesk → **Settings**.
+2. In the left menu, under **Security**, click **Secrets and variables → Actions**.
+3. Click the green **New repository secret** button.
+4. **Name:** `NTFY_TOPIC` (exactly like this, in capitals).
+5. **Secret:** your channel name from C1.
+6. Click **Add secret**.
+
+### D2. Start the 24/7 monitor
+
+1. Click the **Actions** tab.
+2. In the left list, click **24/7 monitor**.
+3. On the right, click **Run workflow**, then the green **Run workflow** button.
+4. After a few seconds a new run appears. Wait for the **green tick** (about 1–3 minutes).
+
+From now on GitHub runs it by itself about every 5 minutes, day and night.
+
+**Check:** on the **Code** tab, open the branch drop-down (it shows `main`). A branch named **data** should now exist. That is where the server publishes its analysis.
+
+---
+
+## Part E — Open the web app and test an alarm
+
+### E1. Make sure the web app is published
+
+1. **Actions** tab → left list → **Deploy web app**.
+2. The top run should have a **green tick**. If it has a red ✗ (because Pages was not on yet), click **Run workflow → Run workflow** and wait for the green tick (about 2 minutes).
+3. **Settings → Pages** now shows **"Your site is live at https://jeewan0406.github.io/signalDesk/"**.
+
+### E2. Add it to your iPhone home screen
+
+1. On the iPhone, open **Safari** (not Chrome) and go to **https://jeewan0406.github.io/signalDesk/**
+2. Tap the **Share** button (square with an arrow up).
+3. Scroll down, tap **Add to Home Screen**, then **Add**.
+4. Open **SignalDesk** from the home screen.
+
+On Android you can do the same in Chrome (**⋮ menu → Install app**), or install the real app in Part G.
+
+### E3. Test a full alarm
+
+1. In SignalDesk, tap **Alarms** (bottom bar on the phone, top bar on a computer).
+2. In **Your private alarm channel**, paste your channel name from C1. Do not press *Generate*, because that would make a new name.
+3. Tap **Send test alarm**.
+4. All your phones should show **"SignalDesk test alarm"**. ✅
+
+**Check the server:** at the top of the Alarms page you should see a green dot with **"Server running · last check X min ago"**.
+
+---
+
+## Part F — AI analyst (optional, paid)
+
+The AI analyst (Claude) reads the charts and the world news (wars, geopolitics, central banks, cyber attacks, crypto) and writes a forecast with reasons, targets and scenarios.
+
+### F1. Get an API key
+
+1. Open **https://console.anthropic.com** and create an account.
+2. Go to **Billing** (or **Plans & Billing**) and add credit, for example $10.
+3. Go to **API Keys** and click **Create Key**. Name it `signaldesk`.
+4. Copy the key (it starts with `sk-ant-`). It is shown only once.
+
+### F2. Save it in GitHub
+
+1. https://github.com/Jeewan0406/signalDesk → **Settings → Secrets and variables → Actions → New repository secret**.
+2. **Name:** `ANTHROPIC_API_KEY`
+3. **Secret:** paste the key, then click **Add secret**.
+
+### F3. Check it works
+
+1. **Actions → 24/7 monitor → Run workflow** (as in D2).
+2. When it shows a green tick, open SignalDesk, open any coin (for example Bitcoin), and look at the **AI analyst** card on the right (below the chart on a phone).
+
+### Cost
+
+The AI runs **every 30 minutes** by default, plus right after a floor/ceiling alarm.
+
+| How often | Runs per day | About per day |
 |---|---|---|
 | Every 30 minutes (default) | 48 | $7–12 |
 | Every hour | 24 | $3.60–6 |
 | Every 4 hours | 6 | $0.90–1.50 |
 | Off | 0 | $0 |
 
-## 5. Install the apps
+To change it, either use the app (**Settings → 24/7 server settings**, which needs Part H), or edit the file `config/settings.json` on GitHub: open it, click the ✏️ pencil, change `"aiIntervalMinutes": 30` to for example `240`, then click **Commit changes**.
 
-| Device | How |
+---
+
+## Part G — Windows, Mac and Android apps (optional)
+
+### G1. Build them
+
+1. **Actions** tab → left list → **Build apps**.
+2. Click **Run workflow → Run workflow**.
+3. Wait about 15–25 minutes until all parts show a green tick.
+
+### G2. Download
+
+1. Go to the **Code** tab. On the right side, under **Releases**, click the newest release (for example *SignalDesk build 1*).
+2. Under **Assets**, download the file for your device.
+
+### G3. Install
+
+- **Windows:** download `SignalDesk-…-win-x64.exe` and double-click it. If Windows says *"Windows protected your PC"*, click **More info → Run anyway** (the app is not code-signed). After installing, SignalDesk keeps running in the tray (bottom-right, near the clock) when you close the window. Right-click the tray icon and tick **Start with computer**.
+- **Mac:** download `…-mac-arm64.dmg` for Apple M1/M2/M3/M4 or `…-mac-x64.dmg` for Intel Macs. Open it and drag SignalDesk into **Applications**. The first time, **right-click** the app → **Open** → **Open**.
+- **Android:** on the phone, download `SignalDesk-…-android.apk` and open it. If asked, allow **Install unknown apps** for your browser, then tap **Install**. When the app asks to send notifications, tap **Allow**.
+
+---
+
+## Part H — Let the app save settings to GitHub (optional)
+
+Needed if you want to change the AI schedule from the app, or have your own price alerts checked 24/7.
+
+1. On GitHub, click your **profile picture** (top right) → **Settings**.
+2. In the left menu, at the bottom, click **Developer settings → Personal access tokens → Fine-grained tokens**.
+3. Click **Generate new token**.
+   - **Token name:** `signaldesk-app`
+   - **Expiration:** choose for example 1 year.
+   - **Repository access:** **Only select repositories → signalDesk**.
+   - **Permissions → Repository permissions → Contents:** **Read and write**.
+4. Click **Generate token** and copy it (it starts with `github_pat_`).
+5. In SignalDesk: **Settings → GitHub sync**.
+   - **Repository:** `Jeewan0406/signalDesk`
+   - **Token:** paste it.
+
+Now you can:
+- **Settings → 24/7 server settings:** choose how often the AI runs, then tap **Save to 24/7 server**.
+- **Alarms → Your price alerts:** add your own prices, then tap **Sync to 24/7 server**.
+
+The token is saved only on that device. Repeat step 5 on each device where you want to change settings.
+
+---
+
+## Everyday use
+
+- **Floor alarm 🟢:** price reached the predicted best-buy zone (likely bounce).
+- **Ceiling alarm 🔴:** price reached the predicted best-sell zone (likely stall).
+- **Broke below floor / above ceiling ⚠️:** the zone did not hold. The alarm tells you the next level.
+- Tap an alarm in ntfy to open that coin in SignalDesk.
+
+## If something does not work
+
+| Problem | What to do |
 |---|---|
-| **iPhone** | Open your GitHub Pages link in **Safari** → Share → **Add to Home Screen**. |
-| **Android** | **Actions → Build apps → Run workflow**. When it finishes, open **Releases** and download the `.apk` on your phone. Allow "install unknown apps" for your browser. |
-| **Windows** | Same release: download the `.exe`. Windows may say "Windows protected your PC" because the app is not code-signed: click **More info → Run anyway**. |
-| **Mac** | Same release: download the `.dmg` (`arm64` for M1–M4, `x64` for Intel). First launch: right-click the app → **Open**. |
+| No alarms on the phone | Check that the ntfy channel name is exactly the same in ntfy, in the GitHub secret `NTFY_TOPIC` and in the app. Repeat the test in C5. |
+| App says "Server offline" | **Actions → 24/7 monitor**: is the latest run green? If it is red, open it and send Claude a screenshot. |
+| Web app link shows 404 | **Settings → Pages** must say *Source: GitHub Actions*. Then run **Deploy web app** again. |
+| AI analyst card is empty | Check the `ANTHROPIC_API_KEY` secret and your Anthropic credit, then run **24/7 monitor** once. |
+| GitHub runs are a few minutes late | That is normal for GitHub's free scheduler. The server still checks the 1-minute highs and lows since its last run, so touches are not missed. |
 
-The desktop app keeps running in the system tray when you close the window, so in-app alarms stay on. Enable **Settings → Start with my computer** to keep it always running.
-
-## 6. Your own price alerts (optional)
-
-- **On one device:** Alarms → *Your price alerts* → Add. These fire while the app is open.
-- **24/7 (app closed):** either edit `config/alerts.json` in GitHub, for example:
-
-  ```json
-  [
-    { "id": "btc-60k", "asset": "BTC", "type": "below", "price": 60000, "note": "buy zone" },
-    { "id": "gold-4000", "asset": "GOLD", "type": "above", "price": 4000, "repeat": true }
-  ]
-  ```
-
-  or let the app save them for you. Create a GitHub **fine-grained token** with access to this repository only and **Contents: Read and write**, paste it in SignalDesk → Settings → GitHub sync, then press **Sync to 24/7 server** on the Alarms page.
-
-## Optional overrides (repository variables)
-
-Normally you change settings in the app. A repository variable, if set, always wins over the app setting.
-
-| Variable | Default | Meaning |
-|---|---|---|
-| `AI_INTERVAL_MINUTES` | from `config/settings.json` | Overrides the app setting: minutes between AI analyst runs (`0` = off) |
-| `ALERT_APPROACH` | from `config/settings.json` | Overrides the app setting: `true` also sends an "approaching floor/ceiling" heads-up |
-| `NTFY_SERVER` | `https://ntfy.sh` | Use your own ntfy server |
-
-Secret `NTFY_TOKEN` is only needed for a protected ntfy server.
-
-## Good to know
-
-- **Timing:** GitHub runs the monitor about every 5 minutes, but under heavy load a run can start 5–15 minutes late. The monitor checks the 1-minute highs and lows since the previous run, so a quick touch of a floor or ceiling between runs is still caught. While an app is open, it also checks every live price tick itself.
-- **Binance** blocks its main API from US-based servers such as GitHub's, so SignalDesk uses Binance's official public market-data mirror, with OKX, Kraken and CoinDCX as backups.
-- **Probabilities** near 50% mean "no edge". The *Model track record* card on each asset shows how often the signals were right historically.
-- **Not financial advice.** Always use your own judgement and a stop-loss.
+SignalDesk shows probabilities, not certainties. It is not financial advice; always use a stop-loss.

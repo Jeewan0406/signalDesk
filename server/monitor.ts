@@ -5,7 +5,7 @@
 //   4. fire floor/ceiling/custom alarms through ntfy push notifications
 //   5. publish latest.json for the apps and save state for the next run
 //
-// Usage: tsx server/monitor.ts [--dry-run] [--out data] [--alerts config/alerts.json] [--no-news] [--no-ai]
+// Usage: tsx server/monitor.ts [--dry-run] [--out data] [--alerts config/alerts.json] [--settings config/settings.json] [--no-news] [--no-ai]
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -29,13 +29,29 @@ const DRY = flag("dry-run");
 const OUT = opt("out", "data");
 const STATE_FILE = join(OUT, "state.json");
 const ALERTS_FILE = opt("alerts", "config/alerts.json");
+const SETTINGS_FILE = opt("settings", "config/settings.json");
 const env = process.env;
-const AI_INTERVAL_MIN = Number(env.AI_INTERVAL_MINUTES || 240);
-const MONITOR_INTERVAL_MIN = Number(env.MONITOR_INTERVAL_MINUTES || 5);
-const AI_ENABLED = !flag("no-ai") && !!(env.ANTHROPIC_API_KEY || env.ANTHROPIC_AUTH_TOKEN);
-const APPROACH = (env.ALERT_APPROACH ?? "false") === "true";
-
 const log = (...m: unknown[]) => console.log(new Date().toISOString().slice(11, 19), ...m);
+
+/**
+ * Server settings. Change them from the app (Settings → 24/7 server settings),
+ * by editing config/settings.json on GitHub, or with repository variables
+ * (AI_INTERVAL_MINUTES, ALERT_APPROACH), which take priority when set.
+ */
+interface ServerSettings {
+  /** Minutes between AI analyst runs. 0 = AI off. */
+  aiIntervalMinutes?: number;
+  /** Also send "approaching floor/ceiling" heads-up alarms. */
+  approachAlerts?: boolean;
+}
+const fileSettings = readJson<ServerSettings>(SETTINGS_FILE, {});
+const envInterval = env.AI_INTERVAL_MINUTES?.trim();
+const AI_INTERVAL_MIN = Math.max(0, envInterval ? Number(envInterval) : Number(fileSettings.aiIntervalMinutes ?? 30)) || 0;
+const MONITOR_INTERVAL_MIN = Number(env.MONITOR_INTERVAL_MINUTES || 5);
+const AI_KEY_PRESENT = !!(env.ANTHROPIC_API_KEY || env.ANTHROPIC_AUTH_TOKEN);
+const AI_ENABLED = !flag("no-ai") && AI_KEY_PRESENT && AI_INTERVAL_MIN > 0;
+const envApproach = env.ALERT_APPROACH?.trim();
+const APPROACH = envApproach ? envApproach === "true" : !!fileSettings.approachAlerts;
 
 function readJson<T>(file: string, fallback: T): T {
   try {
@@ -56,6 +72,7 @@ async function main() {
   const now = started;
   const state = { ...emptyState(), ...readJson<MonitorState>(STATE_FILE, emptyState()) };
   const custom = readJson<CustomAlert[]>(ALERTS_FILE, []).filter((c) => c && c.id && c.asset && Number.isFinite(c.price));
+  log(`Settings: AI every ${AI_INTERVAL_MIN || "off"} min (key ${AI_KEY_PRESENT ? "present" : "missing"}), approach alarms ${APPROACH ? "on" : "off"}`);
   log(`Monitor start. dry-run=${DRY} ai=${AI_ENABLED} assets=${ENABLED_ASSETS.map((a) => a.id).join(",")} custom-alerts=${custom.length}`);
 
   // --- Context: sentiment, FX, news ------------------------------------
@@ -121,7 +138,7 @@ async function main() {
   // --- AI analyst ------------------------------------------------------------
   const bigEvent = fired.some((f) => f.kind !== "approach-floor" && f.kind !== "approach-ceiling");
   const sinceAiMin = (now - state.lastAiAt) / 60_000;
-  const aiDue = AI_ENABLED && ok.length > 0 && (sinceAiMin >= AI_INTERVAL_MIN || (bigEvent && sinceAiMin >= 45));
+  const aiDue = AI_ENABLED && ok.length > 0 && (sinceAiMin >= AI_INTERVAL_MIN || (bigEvent && sinceAiMin >= Math.min(45, AI_INTERVAL_MIN)));
   let finalAnalyses: AssetAnalysis[] = ok.map((r) => r.analysis);
   if (aiDue) {
     state.lastAiAt = now; // also on failure, to avoid retrying (and paying) every 5 minutes
@@ -175,7 +192,7 @@ async function main() {
     news: allNews.slice(0, 80),
     ai: state.ai,
     alerts: state.recent,
-    monitor: { intervalMinutes: MONITOR_INTERVAL_MIN, aiIntervalMinutes: AI_INTERVAL_MIN, aiEnabled: AI_ENABLED },
+    monitor: { intervalMinutes: MONITOR_INTERVAL_MIN, aiIntervalMinutes: AI_INTERVAL_MIN, aiEnabled: AI_ENABLED, aiKeyPresent: AI_KEY_PRESENT, approachAlerts: APPROACH },
   };
   writeJson(join(OUT, "latest.json"), snapshot);
   writeJson(STATE_FILE, state);

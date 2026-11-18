@@ -280,5 +280,5 @@ export interface PublishedSnapshot {
   news: NewsItem[];
   ai: AiReport | null;
   alerts: FiredAlert[];
-  monitor: { intervalMinutes: number; aiIntervalMinutes: number; aiEnabled: boolean };
+  monitor: { intervalMinutes: number; aiIntervalMinutes: number; aiEnabled: boolean; aiKeyPresent?: boolean; approachAlerts?: boolean };
 }

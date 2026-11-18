@@ -350,7 +350,7 @@ export function AiCard({ view, generatedAt, model, asset, enabled }: { view: AiA
     return (
       <p className="small muted" style={{ margin: 0 }}>
         {enabled
-          ? "The AI analyst has not produced a view yet. It runs on the 24/7 server every few hours and immediately after big alarms."
+          ? "The AI analyst has not produced a view yet. It runs on the 24/7 server on your chosen schedule (Settings) and right after big alarms."
           : "AI analyst is off. Add an ANTHROPIC_API_KEY secret to your GitHub repository to switch on the Claude analyst, which reads the news and the data and writes a reasoned forecast (see Settings → Setup guide)."}
       </p>
     );

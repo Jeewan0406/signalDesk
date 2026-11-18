@@ -33,7 +33,20 @@ The AI analyst uses **Claude** (Anthropic's model `claude-opus-5-5`). It reads t
 1. Create an API key at [console.anthropic.com](https://console.anthropic.com) (pay-as-you-go).
 2. Add it as a repository secret named `ANTHROPIC_API_KEY`.
 
-**Cost estimate:** roughly **$0.15–0.25 per analysis run**. By default it runs every 4 hours, plus right after a floor/ceiling alarm (at most every 45 minutes). That comes to about **$1–1.50 per day**. To change how often it runs, add a repository **variable** (not a secret) `AI_INTERVAL_MINUTES`, for example `480` for every 8 hours or `120` for every 2 hours.
+**How often it runs** is your choice. The default is **every 30 minutes**, plus an extra run right after a floor/ceiling alarm. Change it any time in the app: **Settings → 24/7 server settings**. You can pick Off, 15 min, 30 min, 1 h, 2 h, 4 h, 8 h or once a day, and the app shows the estimated cost before you save. Saving needs the GitHub sync token from step 6. You can also edit `config/settings.json` in GitHub directly:
+
+```json
+{ "aiIntervalMinutes": 30, "approachAlerts": false }
+```
+
+**Cost estimate:** roughly **$0.15–0.25 per analysis run**:
+
+| Schedule | Runs per day | About per day |
+|---|---|---|
+| Every 30 minutes (default) | 48 | $7–12 |
+| Every hour | 24 | $3.60–6 |
+| Every 4 hours | 6 | $0.90–1.50 |
+| Off | 0 | $0 |
 
 ## 5. Install the apps
 
@@ -60,12 +73,14 @@ The desktop app keeps running in the system tray when you close the window, so i
 
   or let the app save them for you. Create a GitHub **fine-grained token** with access to this repository only and **Contents: Read and write**, paste it in SignalDesk → Settings → GitHub sync, then press **Sync to 24/7 server** on the Alarms page.
 
-## Optional settings (repository variables)
+## Optional overrides (repository variables)
+
+Normally you change settings in the app. A repository variable, if set, always wins over the app setting.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `AI_INTERVAL_MINUTES` | `240` | Minutes between scheduled AI analyst runs |
-| `ALERT_APPROACH` | `false` | `true` also sends an "approaching floor/ceiling" heads-up |
+| `AI_INTERVAL_MINUTES` | from `config/settings.json` | Overrides the app setting: minutes between AI analyst runs (`0` = off) |
+| `ALERT_APPROACH` | from `config/settings.json` | Overrides the app setting: `true` also sends an "approaching floor/ceiling" heads-up |
 | `NTFY_SERVER` | `https://ntfy.sh` | Use your own ntfy server |
 
 Secret `NTFY_TOKEN` is only needed for a protected ntfy server.

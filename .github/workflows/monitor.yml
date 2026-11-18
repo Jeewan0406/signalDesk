@@ -50,7 +50,7 @@ jobs:
           AI_INTERVAL_MINUTES: ${{ vars.AI_INTERVAL_MINUTES }}
           ALERT_APPROACH: ${{ vars.ALERT_APPROACH }}
           APP_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
-        run: npx tsx server/monitor.ts --out data --alerts config/alerts.json
+        run: npx tsx server/monitor.ts --out data --alerts config/alerts.json --settings config/settings.json
 
       - name: Publish snapshot to the data branch
         run: |

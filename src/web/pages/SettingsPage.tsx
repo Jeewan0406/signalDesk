@@ -3,13 +3,49 @@ import { ASSETS } from "../../core/assets";
 import { timeAgo } from "../../core/format";
 import { Card } from "../components/common";
 import { isIos, isStandalonePwa, platform } from "../platform";
+import { aiCostPerDay, saveServerSettings } from "../settings";
 import { store, useMarket } from "../store";
+
+const AI_OPTIONS = [
+  { v: 0, label: "Off" },
+  { v: 15, label: "Every 15 minutes" },
+  { v: 30, label: "Every 30 minutes" },
+  { v: 60, label: "Every hour" },
+  { v: 120, label: "Every 2 hours" },
+  { v: 240, label: "Every 4 hours" },
+  { v: 480, label: "Every 8 hours" },
+  { v: 1440, label: "Once a day" },
+];
 
 export function SettingsPage() {
   const m = useMarket();
   const s = m.settings;
   const [dataUrl, setDataUrl] = useState(s.dataUrl);
   const [autoLaunch, setAutoLaunch] = useState<boolean | null>(null);
+  const srv = m.snapshot?.monitor;
+  const [aiInterval, setAiInterval] = useState<number>(srv?.aiIntervalMinutes ?? 30);
+  const [approach, setApproach] = useState<boolean>(srv?.approachAlerts ?? false);
+  const [srvMsg, setSrvMsg] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  // Show the server's current values once its snapshot arrives.
+  useEffect(() => {
+    if (srv) {
+      setAiInterval(srv.aiIntervalMinutes);
+      setApproach(!!srv.approachAlerts);
+    }
+  }, [srv?.aiIntervalMinutes, srv?.approachAlerts]);
+  const [lo, hi] = aiCostPerDay(aiInterval);
+  const saveServer = async () => {
+    setSaving(true);
+    try {
+      await saveServerSettings(s, { aiIntervalMinutes: aiInterval, approachAlerts: approach });
+      setSrvMsg("Saved. The 24/7 server uses the new settings from its next run (within about 5 minutes).");
+    } catch (e) {
+      setSrvMsg((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
   const p = platform();
   useEffect(() => {
     if (p === "electron") void window.signaldeskNative!.getAutoLaunch().then(setAutoLaunch);
@@ -79,9 +115,52 @@ export function SettingsPage() {
           </div>
         </Card>
 
+        <Card title="24/7 server settings">
+          <div className="stack" style={{ gap: 10 }}>
+            <label className="field">
+              AI analyst runs
+              <select value={aiInterval} onChange={(e) => setAiInterval(Number(e.target.value))}>
+                {AI_OPTIONS.map((o) => (
+                  <option key={o.v} value={o.v}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="small muted">
+              {aiInterval
+                ? `About ${Math.round(1440 / aiInterval)} runs a day ≈ $${lo.toFixed(2)}–$${hi.toFixed(2)} per day on your Anthropic API key, plus an extra run right after a floor/ceiling alarm.`
+                : "The AI analyst is off. Technical analysis, news drivers and alarms keep working."}
+            </div>
+            <div className="toggle" style={{ paddingTop: 0 }}>
+              <div>
+                <div className="small bold">“Approaching” heads-up alarms</div>
+                <div className="tiny muted">Push alarm when price gets close to a floor or ceiling, before it arrives.</div>
+              </div>
+              <label className="switch">
+                <input type="checkbox" checked={approach} onChange={(e) => setApproach(e.target.checked)} />
+                <span />
+              </label>
+            </div>
+            <div className="row wrap">
+              <button className="btn sm primary" disabled={saving || !s.githubToken || !s.githubRepo} onClick={() => void saveServer()}>
+                {saving ? "Saving…" : "Save to 24/7 server"}
+              </button>
+              {(!s.githubToken || !s.githubRepo) && <span className="tiny muted">Needs the GitHub sync token below.</span>}
+            </div>
+            {srvMsg && <div className="notice info small">{srvMsg}</div>}
+            <div className="tiny faint">
+              {srv
+                ? `Server now: AI ${srv.aiIntervalMinutes ? `every ${srv.aiIntervalMinutes} min` : "off"}${srv.aiKeyPresent === false ? " (no ANTHROPIC_API_KEY secret yet)" : ""} · heads-up alarms ${srv.approachAlerts ? "on" : "off"}.`
+                : "Server not connected yet."}{" "}
+              You can also edit config/settings.json on GitHub.
+            </div>
+          </div>
+        </Card>
+
         <Card title="GitHub sync (optional)">
           <p className="small muted" style={{ marginTop: 0 }}>
-            Lets the app save your price alerts to the 24/7 server. Use a fine-grained token with <b>Contents: read and write</b> on this one repository only. It is stored only
+            Lets the app save your price alerts and server settings to the 24/7 server. Use a fine-grained token with <b>Contents: read and write</b> on this one repository only. It is stored only
             on this device.
           </p>
           <div className="stack" style={{ gap: 8 }}>

@@ -1,0 +1,76 @@
+# The 24/7 server: checks every market about every 5 minutes, sends alarms
+# through ntfy, runs the AI analyst on schedule, and publishes latest.json on
+# the `data` branch for the apps to read.
+name: 24/7 monitor
+
+on:
+  schedule:
+    - cron: "*/5 * * * *" # GitHub runs this every 5 min (sometimes a few minutes late under load)
+  workflow_dispatch:
+
+permissions:
+  contents: write # publish the data branch
+  actions: write # keep this scheduled workflow from being auto-disabled
+
+concurrency:
+  group: monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Restore state from the previous run
+        run: |
+          mkdir -p data
+          if git fetch --depth=1 origin data 2>/dev/null; then
+            git show origin/data:state.json > data/state.json 2>/dev/null || echo "no previous state"
+          else
+            echo "first run: no data branch yet"
+          fi
+
+      - name: Run monitor
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+          NTFY_SERVER: ${{ vars.NTFY_SERVER }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AI_INTERVAL_MINUTES: ${{ vars.AI_INTERVAL_MINUTES }}
+          ALERT_APPROACH: ${{ vars.ALERT_APPROACH }}
+          APP_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+        run: npx tsx server/monitor.ts --out data --alerts config/alerts.json
+
+      - name: Publish snapshot to the data branch
+        run: |
+          cd data
+          git init -q -b data
+          git config user.name "signaldesk-monitor"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Market snapshot $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -f -q "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" data:data
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Keep the schedule alive
+        # GitHub disables scheduled workflows in repos with no activity for 60 days.
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "$(date -u +%H%M)" \< "0010" ]; then
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/monitor.yml/enable" && echo "schedule refreshed"
+          fi

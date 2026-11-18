@@ -6,6 +6,13 @@ import { isIos, isStandalonePwa, platform } from "../platform";
 import { aiCostPerDay, saveServerSettings } from "../settings";
 import { store, useMarket } from "../store";
 
+const PROVIDERS = [
+  { v: "auto", label: "Auto — free providers first" },
+  { v: "gemini", label: "Google Gemini (free)" },
+  { v: "groq", label: "Groq gpt-oss (free)" },
+  { v: "anthropic", label: "Claude (paid)" },
+];
+
 const AI_OPTIONS = [
   { v: 0, label: "Off" },
   { v: 15, label: "Every 15 minutes" },
@@ -25,6 +32,7 @@ export function SettingsPage() {
   const srv = m.snapshot?.monitor;
   const [aiInterval, setAiInterval] = useState<number>(srv?.aiIntervalMinutes ?? 30);
   const [approach, setApproach] = useState<boolean>(srv?.approachAlerts ?? false);
+  const [provider, setProvider] = useState<string>(srv?.aiProvider ?? "auto");
   const [srvMsg, setSrvMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   // Show the server's current values once its snapshot arrives.
@@ -32,13 +40,18 @@ export function SettingsPage() {
     if (srv) {
       setAiInterval(srv.aiIntervalMinutes);
       setApproach(!!srv.approachAlerts);
+      setProvider(srv.aiProvider ?? "auto");
     }
-  }, [srv?.aiIntervalMinutes, srv?.approachAlerts]);
+  }, [srv?.aiIntervalMinutes, srv?.approachAlerts, srv?.aiProvider]);
+  const keys = srv?.aiProvidersAvailable ?? [];
+  // Which provider will actually answer (first one with a key, in order).
+  const effective = provider !== "auto" && keys.includes(provider) ? provider : (["gemini", "groq", "anthropic"].find((k) => keys.includes(k)) ?? (provider === "auto" ? "gemini" : provider));
+  const runsPerDay = aiInterval ? Math.round(1440 / aiInterval) : 0;
   const [lo, hi] = aiCostPerDay(aiInterval);
   const saveServer = async () => {
     setSaving(true);
     try {
-      await saveServerSettings(s, { aiIntervalMinutes: aiInterval, approachAlerts: approach });
+      await saveServerSettings(s, { aiProvider: provider, aiIntervalMinutes: aiInterval, approachAlerts: approach });
       setSrvMsg("Saved. The 24/7 server uses the new settings from its next run (within about 5 minutes).");
     } catch (e) {
       setSrvMsg((e as Error).message);
@@ -118,6 +131,16 @@ export function SettingsPage() {
         <Card title="24/7 server settings">
           <div className="stack" style={{ gap: 10 }}>
             <label className="field">
+              AI provider
+              <select value={provider} onChange={(e) => setProvider(e.target.value)}>
+                {PROVIDERS.map((o) => (
+                  <option key={o.v} value={o.v}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
               AI analyst runs
               <select value={aiInterval} onChange={(e) => setAiInterval(Number(e.target.value))}>
                 {AI_OPTIONS.map((o) => (
@@ -128,9 +151,13 @@ export function SettingsPage() {
               </select>
             </label>
             <div className="small muted">
-              {aiInterval
-                ? `About ${Math.round(1440 / aiInterval)} runs a day ≈ $${lo.toFixed(2)}–$${hi.toFixed(2)} per day on your Anthropic API key, plus an extra run right after a floor/ceiling alarm.`
-                : "The AI analyst is off. Technical analysis, news drivers and alarms keep working."}
+              {!aiInterval
+                ? "The AI analyst is off. Technical analysis, news drivers and alarms keep working."
+                : effective === "anthropic"
+                  ? `About ${runsPerDay} runs a day ≈ $${lo.toFixed(2)}–$${hi.toFixed(2)} per day on your Anthropic API key, plus an extra run right after a floor/ceiling alarm.`
+                  : effective === "groq"
+                    ? `Free. About ${runsPerDay} runs a day.${runsPerDay > 24 ? " Groq's free daily token allowance fits about 25 runs, so choose every hour or slower (or keep Gemini as the main provider)." : ""}`
+                    : `Free (Google Gemini free tier). About ${runsPerDay} runs a day: the stronger Flash model is used while its small daily quota lasts (about 20), then Flash-Lite (about 500 a day).`}
             </div>
             <div className="toggle" style={{ paddingTop: 0 }}>
               <div>
@@ -149,9 +176,10 @@ export function SettingsPage() {
               {(!s.githubToken || !s.githubRepo) && <span className="tiny muted">Needs the GitHub sync token below.</span>}
             </div>
             {srvMsg && <div className="notice info small">{srvMsg}</div>}
+            {srv?.lastAiError && <div className="notice warn small">Last AI problem: {srv.lastAiError.slice(0, 300)}</div>}
             <div className="tiny faint">
               {srv
-                ? `Server now: AI ${srv.aiIntervalMinutes ? `every ${srv.aiIntervalMinutes} min` : "off"}${srv.aiKeyPresent === false ? " (no ANTHROPIC_API_KEY secret yet)" : ""} · heads-up alarms ${srv.approachAlerts ? "on" : "off"}.`
+                ? `Server now: AI ${srv.aiIntervalMinutes ? `every ${srv.aiIntervalMinutes} min` : "off"} · provider ${srv.aiProvider ?? "auto"} · keys: ${keys.length ? keys.join(", ") : "none yet (add GEMINI_API_KEY)"} · heads-up alarms ${srv.approachAlerts ? "on" : "off"}.`
                 : "Server not connected yet."}{" "}
               You can also edit config/settings.json on GitHub.
             </div>

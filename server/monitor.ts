@@ -13,7 +13,7 @@ import { analyzeFromCandles, fetchCandleSet } from "../src/core/analyze";
 import { ENABLED_ASSETS } from "../src/core/assets";
 import { fetchCandles, fetchDerivatives, fetchFearGreed, fetchUsdInr } from "../src/core/providers";
 import type { AssetAnalysis, CustomAlert, FiredAlert, NewsItem, PublishedSnapshot } from "../src/core/types";
-import { AI_MODEL, runAiAnalyst } from "./ai";
+import { availableProviders, runAiAnalyst } from "./ai";
 import { emptyState, evaluateAlerts, memoFromAnalysis, type MonitorState } from "./alerts";
 import { collectNews } from "./news";
 import { sendNtfy } from "./notify";
@@ -43,12 +43,19 @@ interface ServerSettings {
   aiIntervalMinutes?: number;
   /** Also send "approaching floor/ceiling" heads-up alarms. */
   approachAlerts?: boolean;
+  /** auto (free providers first) | gemini | groq | anthropic */
+  aiProvider?: string;
+  /** Optional model name for the chosen provider. */
+  aiModel?: string;
 }
 const fileSettings = readJson<ServerSettings>(SETTINGS_FILE, {});
 const envInterval = env.AI_INTERVAL_MINUTES?.trim();
 const AI_INTERVAL_MIN = Math.max(0, envInterval ? Number(envInterval) : Number(fileSettings.aiIntervalMinutes ?? 30)) || 0;
 const MONITOR_INTERVAL_MIN = Number(env.MONITOR_INTERVAL_MINUTES || 5);
-const AI_KEY_PRESENT = !!(env.ANTHROPIC_API_KEY || env.ANTHROPIC_AUTH_TOKEN);
+const AI_PROVIDERS = availableProviders(env);
+const AI_KEY_PRESENT = AI_PROVIDERS.length > 0;
+const AI_PROVIDER = (env.AI_PROVIDER?.trim() || fileSettings.aiProvider || "auto").toLowerCase();
+const AI_MODEL_OVERRIDE = env.AI_MODEL?.trim() || fileSettings.aiModel || undefined;
 const AI_ENABLED = !flag("no-ai") && AI_KEY_PRESENT && AI_INTERVAL_MIN > 0;
 const envApproach = env.ALERT_APPROACH?.trim();
 const APPROACH = envApproach ? envApproach === "true" : !!fileSettings.approachAlerts;
@@ -72,7 +79,7 @@ async function main() {
   const now = started;
   const state = { ...emptyState(), ...readJson<MonitorState>(STATE_FILE, emptyState()) };
   const custom = readJson<CustomAlert[]>(ALERTS_FILE, []).filter((c) => c && c.id && c.asset && Number.isFinite(c.price));
-  log(`Settings: AI every ${AI_INTERVAL_MIN || "off"} min (key ${AI_KEY_PRESENT ? "present" : "missing"}), approach alarms ${APPROACH ? "on" : "off"}`);
+  log(`Settings: AI every ${AI_INTERVAL_MIN || "off"} min, provider ${AI_PROVIDER} (keys: ${AI_PROVIDERS.join(", ") || "none"}), approach alarms ${APPROACH ? "on" : "off"}`);
   log(`Monitor start. dry-run=${DRY} ai=${AI_ENABLED} assets=${ENABLED_ASSETS.map((a) => a.id).join(",")} custom-alerts=${custom.length}`);
 
   // --- Context: sentiment, FX, news ------------------------------------
@@ -143,11 +150,11 @@ async function main() {
   if (aiDue) {
     state.lastAiAt = now; // also on failure, to avoid retrying (and paying) every 5 minutes
     try {
-      log(`Running AI analyst (${AI_MODEL})${bigEvent ? " — triggered by an alarm" : ""}...`);
-      const report = await runAiAnalyst(finalAnalyses, allNews, { fearGreed, usdInr });
+      log(`Running AI analyst (${AI_PROVIDER})${bigEvent ? " — triggered by an alarm" : ""}...`);
+      const report = await runAiAnalyst(finalAnalyses, allNews, { fearGreed, usdInr }, { provider: AI_PROVIDER, model: AI_MODEL_OVERRIDE, log });
       state.ai = report;
       state.lastAiError = undefined;
-      log(`AI done: ${report.riskRegime}; ${report.assets.map((v) => `${v.id} ${v.bias} ${v.confidence}`).join(", ")}`);
+      log(`AI done via ${report.provider} / ${report.model}: ${report.riskRegime}; ${report.assets.map((v) => `${v.id} ${v.bias} ${v.confidence}`).join(", ")}`);
       // Re-run the (cheap) forecast so the new AI view is blended in.
       finalAnalyses = ok.map((r) =>
         analyzeFromCandles(r.asset, r.set, r.source, { ...r.extras, ai: report.assets.find((v) => v.id === r.asset.id) ?? null, aiAgeHours: 0 }),
@@ -192,7 +199,16 @@ async function main() {
     news: allNews.slice(0, 80),
     ai: state.ai,
     alerts: state.recent,
-    monitor: { intervalMinutes: MONITOR_INTERVAL_MIN, aiIntervalMinutes: AI_INTERVAL_MIN, aiEnabled: AI_ENABLED, aiKeyPresent: AI_KEY_PRESENT, approachAlerts: APPROACH },
+    monitor: {
+      intervalMinutes: MONITOR_INTERVAL_MIN,
+      aiIntervalMinutes: AI_INTERVAL_MIN,
+      aiEnabled: AI_ENABLED,
+      aiKeyPresent: AI_KEY_PRESENT,
+      approachAlerts: APPROACH,
+      aiProvider: AI_PROVIDER,
+      aiProvidersAvailable: AI_PROVIDERS,
+      lastAiError: state.lastAiError,
+    },
   };
   writeJson(join(OUT, "latest.json"), snapshot);
   writeJson(STATE_FILE, state);

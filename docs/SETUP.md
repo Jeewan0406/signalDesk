@@ -10,7 +10,7 @@ Total time: about 30–40 minutes, once.
 | C | Install ntfy on your phones and create your alarm channel | Yes |
 | D | Connect the alarm channel to the 24/7 server and start it | Yes |
 | E | Open the web app and test an alarm | Yes |
-| F | AI analyst (Claude) | Optional, costs money |
+| F | AI analyst (free with Google Gemini) | Recommended |
 | G | Windows, Mac and Android apps | Optional |
 | H | Let the app save settings to GitHub | Optional |
 
@@ -152,40 +152,57 @@ On Android you can do the same in Chrome (**⋮ menu → Install app**), or inst
 
 ---
 
-## Part F — AI analyst (optional, paid)
+## Part F — AI analyst (FREE with Google Gemini)
 
-The AI analyst (Claude) reads the charts and the world news (wars, geopolitics, central banks, cyber attacks, crypto) and writes a forecast with reasons, targets and scenarios.
+The AI analyst reads the charts and the world news (wars, geopolitics, central banks, cyber attacks, crypto) and writes a forecast with reasons, targets and scenarios. It runs on the **free** Google Gemini API: no credit card is needed.
 
-### F1. Get an API key
+### F1. Get a free Gemini API key
 
-1. Open **https://console.anthropic.com** and create an account.
-2. Go to **Billing** (or **Plans & Billing**) and add credit, for example $10.
-3. Go to **API Keys** and click **Create Key**. Name it `signaldesk`.
-4. Copy the key (it starts with `sk-ant-`). It is shown only once.
+1. Open **https://aistudio.google.com/apikey** and sign in with your Google (Gmail) account.
+2. If asked, accept the terms of service.
+3. Click **Create API key**. If it asks for a project, choose **Create API key in new project**.
+4. Copy the key (it starts with `AIza`). Keep it private.
 
 ### F2. Save it in GitHub
 
 1. https://github.com/Jeewan0406/signalDesk → **Settings → Secrets and variables → Actions → New repository secret**.
-2. **Name:** `ANTHROPIC_API_KEY`
+2. **Name:** `GEMINI_API_KEY`
 3. **Secret:** paste the key, then click **Add secret**.
 
 ### F3. Check it works
 
-1. **Actions → 24/7 monitor → Run workflow** (as in D2).
-2. When it shows a green tick, open SignalDesk, open any coin (for example Bitcoin), and look at the **AI analyst** card on the right (below the chart on a phone).
+1. **Actions → 24/7 monitor → Run workflow** (as in D2) and wait for the green tick.
+2. Click the finished run → **monitor** → open the **Run monitor** step. Look for a line like:
+   `AI done via Google Gemini (free tier) / gemini-flash-latest: risk-off; BTC bearish 55, ...`
+3. Open SignalDesk → any coin → the **AI analyst** card now shows the forecast, and the home screen shows the **Risk regime** summary.
 
-### Cost
+### F4. Free backup: Groq (optional, recommended)
 
-The AI runs **every 30 minutes** by default, plus right after a floor/ceiling alarm.
+If Gemini's free quota runs out for the day, SignalDesk can switch to Groq automatically (also free).
 
-| How often | Runs per day | About per day |
-|---|---|---|
-| Every 30 minutes (default) | 48 | $7–12 |
-| Every hour | 24 | $3.60–6 |
-| Every 4 hours | 6 | $0.90–1.50 |
-| Off | 0 | $0 |
+1. Open **https://console.groq.com/keys** and sign in (Google, GitHub or email).
+2. Click **Create API Key**, name it `signaldesk`, then click **Submit**.
+3. Copy the key (it starts with `gsk_`). It is shown only once.
+4. On GitHub add another secret: **Name:** `GROQ_API_KEY`, **Secret:** the key.
 
-To change it, either use the app (**Settings → 24/7 server settings**, which needs Part H), or edit the file `config/settings.json` on GitHub: open it, click the ✏️ pencil, change `"aiIntervalMinutes": 30` to for example `240`, then click **Commit changes**.
+### How often it runs (free)
+
+- Default: **every 30 minutes**, plus right after a floor/ceiling alarm.
+- Gemini's free tier (as of late 2026) allows about **20 requests a day on Flash** and about **500 a day on Flash-Lite**. SignalDesk uses Flash first, then switches to Flash-Lite automatically when Flash's daily quota is used. Quotas reset every day at midnight US Pacific time.
+- Groq's free tier fits about **25 runs a day**, so it works best as a backup or at **every hour** or slower.
+- Change it in the app: **Settings → 24/7 server settings** (needs Part H), or edit `config/settings.json` on GitHub (✏️ pencil → change the numbers → **Commit changes**):
+
+  ```json
+  { "aiProvider": "auto", "aiIntervalMinutes": 30, "approachAlerts": false }
+  ```
+
+  `aiProvider` can be `auto` (free providers first), `gemini`, `groq` or `anthropic`.
+
+Free-tier note: on Google's free tier, Google may use what is sent to improve its products. SignalDesk sends only public market data and news headlines, nothing personal.
+
+### Paid option: Claude (optional)
+
+If you later want Anthropic's Claude instead: create a key at **https://console.anthropic.com** (with credit added), save it as secret `ANTHROPIC_API_KEY`, and set `aiProvider` to `anthropic`. It costs roughly $0.15–0.25 per run.
 
 ---
 
@@ -248,7 +265,7 @@ The token is saved only on that device. Repeat step 5 on each device where you w
 | No alarms on the phone | Check that the ntfy channel name is exactly the same in ntfy, in the GitHub secret `NTFY_TOPIC` and in the app. Repeat the test in C5. |
 | App says "Server offline" | **Actions → 24/7 monitor**: is the latest run green? If it is red, open it and send Claude a screenshot. |
 | Web app link shows 404 | **Settings → Pages** must say *Source: GitHub Actions*. Then run **Deploy web app** again. |
-| AI analyst card is empty | Check the `ANTHROPIC_API_KEY` secret and your Anthropic credit, then run **24/7 monitor** once. |
+| AI analyst card is empty | Check the `GEMINI_API_KEY` secret, then run **24/7 monitor** once. The app's **Settings → 24/7 server settings** shows the last AI problem, if any. |
 | GitHub runs are a few minutes late | That is normal for GitHub's free scheduler. The server still checks the 1-minute highs and lows since its last run, so touches are not missed. |
 
 SignalDesk shows probabilities, not certainties. It is not financial advice; always use a stop-loss.

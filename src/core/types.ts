@@ -218,6 +218,8 @@ export interface AiAssetView {
 export interface AiReport {
   generatedAt: number;
   model: string;
+  /** Human-readable provider, e.g. "Google Gemini (free tier)". */
+  provider?: string;
   marketSummary: string;
   riskRegime: "risk-on" | "risk-off" | "mixed";
   keyEvents: { headline: string; category: string; impact: string; assets: string[] }[];
@@ -280,5 +282,16 @@ export interface PublishedSnapshot {
   news: NewsItem[];
   ai: AiReport | null;
   alerts: FiredAlert[];
-  monitor: { intervalMinutes: number; aiIntervalMinutes: number; aiEnabled: boolean; aiKeyPresent?: boolean; approachAlerts?: boolean };
+  monitor: {
+    intervalMinutes: number;
+    aiIntervalMinutes: number;
+    aiEnabled: boolean;
+    aiKeyPresent?: boolean;
+    approachAlerts?: boolean;
+    /** Configured provider: auto | gemini | groq | anthropic. */
+    aiProvider?: string;
+    /** Providers that have a key on the server. */
+    aiProvidersAvailable?: string[];
+    lastAiError?: string;
+  };
 }

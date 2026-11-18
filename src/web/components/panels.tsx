@@ -351,7 +351,7 @@ export function AiCard({ view, generatedAt, model, asset, enabled }: { view: AiA
       <p className="small muted" style={{ margin: 0 }}>
         {enabled
           ? "The AI analyst has not produced a view yet. It runs on the 24/7 server on your chosen schedule (Settings) and right after big alarms."
-          : "AI analyst is off. Add an ANTHROPIC_API_KEY secret to your GitHub repository to switch on the Claude analyst, which reads the news and the data and writes a reasoned forecast (see Settings → Setup guide)."}
+          : "AI analyst is off. Add a free GEMINI_API_KEY secret (Google AI Studio) to your GitHub repository to switch it on. It reads the news and the data and writes a reasoned forecast (see Settings → Setup guide)."}
       </p>
     );
   }
@@ -406,6 +406,7 @@ export function AiCard({ view, generatedAt, model, asset, enabled }: { view: AiA
         </div>
       )}
       {model && <div className="tiny faint">Model: {model}</div>}
+      <div className="tiny faint">AI opinions can be wrong. Treat them as one input, not a signal on their own.</div>
     </div>
   );
 }

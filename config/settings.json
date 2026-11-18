@@ -1,4 +1,5 @@
 {
+  "aiProvider": "auto",
   "aiIntervalMinutes": 30,
   "approachAlerts": false
 }

@@ -98,6 +98,8 @@ export function syncAlertsToGithub(s: Settings): Promise<void> {
 }
 
 export interface ServerSettings {
+  /** auto (free providers first) | gemini | groq | anthropic */
+  aiProvider: string;
   aiIntervalMinutes: number;
   approachAlerts: boolean;
 }

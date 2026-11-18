@@ -156,7 +156,7 @@ export function AssetPage({ id }: { id: string }) {
         </div>
 
         <div className="stack" style={{ gap: 16 }}>
-          <Card title="AI analyst" right={<span className="chip">Claude</span>}>
+          <Card title="AI analyst" right={<span className="chip">{snap?.ai?.provider?.replace(/ \(.*\)$/, "") ?? "AI"}</span>}>
             <AiCard view={ai} generatedAt={snap?.ai?.generatedAt} model={snap?.ai?.model} asset={asset} enabled={!!snap?.monitor.aiEnabled} />
           </Card>
           {a && (

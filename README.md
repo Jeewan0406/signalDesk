@@ -7,7 +7,7 @@ Trading analysis and 24/7 price alarms for **Bitcoin, Solana, XRP and Gold**, as
 - **Predicted floor and ceiling**: support/resistance zones built from confluence. That means swing highs/lows on four timeframes, volume-profile nodes, Fibonacci levels, key moving averages, daily/weekly pivots, previous day/week/month extremes and round numbers. Each zone gets a strength score, a "chance it holds" estimate and a "chance price gets there" estimate.
 - **Forecasts for the next hours, days and weeks**: direction with probability, target price, the level that proves the view wrong, and **how long** the move should take (minutes, hours or days).
 - **What drives the price**: war and conflict, geopolitics, central banks, cyber attacks/hacks, regulation and institutional flows, read from BBC, Al Jazeera, CNBC, MarketWatch, CoinDesk, Cointelegraph and the GDELT world-events database. Futures funding, open interest, long/short ratio and the Fear & Greed index are included too.
-- **AI analyst (Claude by Anthropic)** reads all of the above and writes a reasoned desk forecast with bull/base/bear scenarios.
+- **AI analyst** reads all of the above and writes a reasoned desk forecast with bull/base/bear scenarios. It runs **free** on Google Gemini, with Groq as a free backup and Claude as an optional paid choice.
 - **Alarms**: when price reaches the predicted floor (likely bounce) or ceiling (likely stall), when a level breaks, or at your own prices. They come from a free 24/7 GitHub server through the **ntfy** app, so they arrive **even when SignalDesk is closed**.
 - **Prices in USD and INR** (live USDT/INR from CoinDCX).
 
